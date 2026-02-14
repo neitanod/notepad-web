@@ -1,0 +1,178 @@
+<html>
+  <head>
+    <title>Notas</title>
+    <link rel="stylesheet" type="text/css" href="../lib/fontawesome/css/all.min.css"/>
+    <link rel="stylesheet" type="text/css" href="../lib/asciidoctor.css"/>
+    <link rel="stylesheet" type="text/css" href="../lib/notas.css"/>
+    <script src="../lib/jquery-2.1.1.min.js"></script>
+    <script src="../lib/markdown.min.js"></script>
+    <script src="../lib/asciidoctor.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  </head>
+  <body>
+    <meta charset="utf-8">
+    <script src="../lib/axios.min.js"></script>
+    <div id="screen">
+        <textarea spellcheck="false" id="text" class="hidden"></textarea>
+        <div id="contents">
+            <div id="asciidoc"></div>
+        </div>
+        <br/>
+        <br/>
+        <div class="commands">
+            <i onclick="edit();" id="editor" class="icon-button icon-edit fa fa-pen"></i>
+            <i onclick="save();" id="saver" class="icon-button icon-save fa fa-check hidden"></i>
+            <a id="help-icon" target="_blank" href="https://notas.ip1.cc/?asciidoc" class="hidden">
+            <i class="fa fa-question"></i>
+            </a>
+        </div>
+    </div>
+    <script>
+    function $(selector) { return document.querySelector(selector); }
+
+    function $$(selector) { return document.querySelectorAll(selector); }
+
+    function edit() {
+        $('#saver').classList.remove('hidden');
+        $('#help-icon').classList.remove('hidden');
+        $('#editor').classList.add('hidden');
+        $('#contents').classList.add('hidden');
+        $('#text').classList.remove('hidden');
+        $('#text').focus();
+    }
+
+    function save() {
+        let new_text = $('#text').value;
+        axios({
+            url:"https://publish.ip1.cc",
+            method:"POST",
+            data: {data: new_text}
+        })
+        .then( function(r) {
+            window.location.hash = r.data.key;
+            document.title = getFirstLine(new_text);
+            $('#saver').classList.add('hidden');
+            $('#help-icon').classList.add('hidden');
+            $('#editor').classList.remove('hidden');
+            $('#contents').classList.remove('hidden');
+            $('#text').classList.add('hidden');
+            render(new_text);
+        } )
+    }
+
+    function loadById() {
+        if(window.location.hash == "#demo") {
+            let demos = ['13abb7e36025a5cfe7157a03fb29959c',   // Traductor al jeringozo
+                '6044d722ebbf3ecdf228393a33d4ed19'];  // Adivina el número secreto
+            window.location.hash = "#"+demos[Math.floor(Math.random() * demos.length)];
+            document.title = getFirstLine(r.data);
+        }
+
+        if(window.location.hash) {     // si el URL tiene un hash, asumimos que es la key de los datos a recuperar
+            axios({ url: "https://publish.ip1.cc/public/"+window.location.hash.substr(1)+".txt" })  // recuperamos los datos
+                .then( function(r) {
+                    console.log(r);
+                    $('#text').innerHTML = r.data;
+                    document.title = getFirstLine($('#text').innerText);
+                    render(r.data);
+                } )
+        }
+    }
+
+    function render(ad_source) {
+        $('#asciidoc').innerHTML = Asciidoctor().convert(ad_source);
+    }
+
+    function getFirstLine(text) {
+        text = text.trim();
+        var index = text.indexOf("\n");
+        if (index === -1) index = undefined;
+        return text.substring(0, index);
+    }
+
+    document.addEventListener("DOMContentLoaded", loadById);
+
+    </script>
+    <style>
+        #screen {
+            min-height: 80%;
+            padding: 10px;
+        }
+        #text {
+            width: 100%;
+            min-height: 90%;
+            padding: 5px;
+            border: none;
+
+            font-family: monospace;
+            white-space: pre;
+            outline: none;
+        }
+        #input-box {
+            display: none;
+        }
+        #input {
+            border: none;
+            width: 90%;
+        }
+        #input:focus{
+            outline: none;
+        }
+        #input-box.show {
+            display: block;
+        }
+        button:hover {
+            color: white;
+            caret-color: white;
+            background-color: #1867c0;
+            border-color: #1867c0;
+        }
+        .commands {
+            position: fixed;
+            top: 0;
+            right: 0;
+        }
+        .icon-button {
+            position: absolute;
+            top: 10px;
+            padding: 5px 15px;
+            right: 0;
+            color: white;
+            font-size: 0.875rem;
+            cursor: pointer;
+            opacity: 0.5;
+        }
+        .icon-save {
+            padding: 5px 15px;
+            color: black;
+            right: 12px;
+            top: 15px;
+        }
+        #help-icon {
+            position: absolute;
+            top: 45px;
+            padding: 5px 15px;
+            right: 12px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            color: black;
+            opacity: 0.4;
+        }
+        button {
+            float: right;
+            height: 44px;
+            min-width: 78px;
+            padding: 0 20px;
+            color: lightgray;
+            background-color: white;
+            border-color: white;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            _box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
+        }
+        .hidden {
+            display: none !important;
+        }
+    </style>
+  </body>
+</html>

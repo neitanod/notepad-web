@@ -1,0 +1,76 @@
+body {
+  font-family: verdana, arial, helvetica;
+  font-size: 0.8em !important;
+  background-color: #CCCCCC;
+}
+#contents{
+  background-color: #FFFFFF;
+  width: 85%;
+  max-width: 1180px;
+  padding: 10px 30px;
+  margin: 15px auto 60px auto;
+  border: 1px solid #999999;
+  border-radius: 15px;
+  overflow: auto;
+}
+strong em {
+  font-size: 1.2em;
+  color: red;
+}
+code {
+  white-space: pre-wrap;
+}
+blockquote {
+  font-style: italic;
+  color: #86867b;
+  font-family: Georgia, serif;
+  font-size: 1.1em;
+}
+
+
+.admonitionblock .icon {
+    width: 50px !important;
+}
+
+.admonitionblock .icon .title {
+    font-weight: 900;
+    font-family: "Font Awesome 5 Free" !important;
+    -webkit-font-smoothing: antialiased;
+    display: inline-block;
+    font-style: normal;
+    font-variant: normal;
+    text-rendering: auto;
+    line-height: 1;
+    font-size: 0;
+}
+
+.admonitionblock .icon .title:before {
+    font-size: 24px;
+    /* text-shadow: 1px 1px 2px rgba(0,0,0,.5); */
+    cursor: default;
+}
+
+.admonitionblock.tip .icon .title:before {
+    /* content: "\f164"; */
+    content: "\f0eb";
+    /* content: "\f138"; */
+    color: #ed8940;
+}
+.admonitionblock.note .icon .title:before {
+    content: "\f05a";
+    color: #19407c;
+}
+.admonitionblock.important .icon .title:before {
+    content: "\f06a";
+    color: #bf0000;
+}
+.admonitionblock.caution .icon .title:before {
+    content: "\f06d";
+    color: #bf3400;
+}
+.admonitionblock.warning .icon .title:before {
+    content: "\f071";
+    color: #bf6900;
+}
+
+
