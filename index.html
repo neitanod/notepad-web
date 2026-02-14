@@ -1,14 +1,16 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="lib/fontawesome/css/all.min.css">
   </head>
   <body onclick="focusText()">
-    <meta charset="utf-8">
     <script src="lib/axios.min.js"></script>
     <div id="screen">
-        <textarea spellcheck="false" id="text"></textarea>
-        <br/>
-        <button onclick="save();" id="saver">SAVE</button>
+        <textarea spellcheck="false" id="text" placeholder="Escribe algo..."></textarea>
+        <button onclick="save();" id="saver" title="Guardar" class="no-print">
+            <i class="fas fa-save"></i>
+        </button>
         <pre id="console"></pre>
         <div id="input-box">
             > <input id="input" type="text"></input>
@@ -19,34 +21,95 @@
 
     function $$(selector) { return document.querySelectorAll(selector); }
 
+    // Generar o recuperar key secreta del usuario
+    function getSecretKey() {
+        let key = localStorage.getItem('notepad-secret-key');
+        if (!key) {
+            // Generar key aleatoria de 32 caracteres hex
+            const arr = new Uint8Array(16);
+            crypto.getRandomValues(arr);
+            key = Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+            localStorage.setItem('notepad-secret-key', key);
+        }
+        return key;
+    }
+
+    // Obtener nombre de archivo actual o generar uno nuevo
+    function getCurrentNoteName() {
+        const hash = window.location.hash.substr(1);
+        // Si es un namespace propio: @namespace/nombre
+        if (hash.startsWith('@')) {
+            const parts = hash.split('/');
+            if (parts.length >= 2) {
+                return parts.slice(1).join('/'); // retorna el nombre
+            }
+        }
+        // Generar nombre nuevo basado en timestamp
+        return 'nota-' + Date.now() + '.txt';
+    }
+
     function save() {
+        const secretKey = getSecretKey();
+        const noteName = getCurrentNoteName();
+
         axios({
-            url:"https://publish.ip1.cc",
-            method:"POST",
-            data: {data: $('#text').value}
+            url: "https://publish.ip1.cc",
+            method: "POST",
+            headers: {
+                'X-Publish-Key': secretKey
+            },
+            data: {
+                data: $('#text').value,
+                name: noteName
+            }
         })
-            .then( function(r) {
-                window.location.hash = r.data.key;
-                document.title = getFirstLine($('#text').innerText);
-            } )
+        .then(function(r) {
+            // r.data es la URL completa: https://publish.ip1.cc/p/namespace/nombre
+            const url = r.data.trim();
+            // Extraer namespace y nombre del path /p/namespace/nombre
+            const match = url.match(/\/p\/([^\/]+)\/(.+)$/);
+            if (match) {
+                const namespace = match[1];
+                const name = match[2];
+                window.location.hash = '@' + namespace + '/' + name;
+            }
+            document.title = getFirstLine($('#text').value);
+        })
     }
 
     function loadById() {
-        if(window.location.hash == "#demo") {
+        const hash = window.location.hash.substr(1);
+
+        if (!hash) return;
+
+        // Demo mode
+        if (hash === "demo") {
             let demos = ['13abb7e36025a5cfe7157a03fb29959c',   // Traductor al jeringozo
                 '6044d722ebbf3ecdf228393a33d4ed19'];  // Adivina el número secreto
-            window.location.hash = "#"+demos[Math.floor(Math.random() * demos.length)];
-            document.title = getFirstLine(r.data);
+            window.location.hash = "#" + demos[Math.floor(Math.random() * demos.length)];
+            return loadById(); // reload con el nuevo hash
         }
 
-        if(window.location.hash) {     // si el URL tiene un hash, asumimos que es la key de los datos a recuperar
-            axios({ url: "https://publish.ip1.cc/public/"+window.location.hash.substr(1)+".txt" })  // recuperamos los datos
-                .then( function(r) {
-                    console.log(r);
-                    $('#text').innerHTML = r.data;
-                    document.title = getFirstLine($('#text').innerText);
-                } )
+        let url;
+        if (hash.startsWith('@')) {
+            // Namespace URL: @namespace/nombre -> /p/namespace/nombre
+            const path = hash.substr(1); // quitar @
+            url = "https://publish.ip1.cc/p/" + path;
+        } else {
+            // Legacy public URL: hash -> /public/hash.txt
+            url = "https://publish.ip1.cc/public/" + hash + ".txt";
         }
+
+        axios({ url: url })
+            .then(function(r) {
+                console.log(r);
+                $('#text').value = r.data;
+                document.title = getFirstLine($('#text').value);
+                autoResize();
+            })
+            .catch(function(err) {
+                console.log('Error loading:', err);
+            })
     }
 
     function getFirstLine(text) {
@@ -56,38 +119,48 @@
         return text.substring(0, index);
     }
 
-    document.addEventListener("DOMContentLoaded", loadById);
+    function autoResize() {
+        var el = $('#text');
+        el.style.height = 'auto';
+        el.style.height = Math.max(el.scrollHeight, window.innerHeight - 40) + 'px';
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        getSecretKey(); // Inicializar key si no existe
+        loadById();
+        $('#text').addEventListener('input', autoResize);
+        setTimeout(autoResize, 100);
+    });
 
     </script>
     <style>
-        #screen {
-            min-height: 80vh;
-            padding: 10px;
+        * {
+            box-sizing: border-box;
         }
-        #screen.running {
-            background-color: black;
-            color: white;
-        }
-        #screen.running #text,
-        #screen.running #runner,
-        #screen.running #saver
-            {
-            display: none;
-        }
-        #screen.running #input {
-            background-color: black;
-            color: white;
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background-color: #faf8f5;
         }
         #text {
             width: 100%;
-            min-height: 85vh;
-            padding: 5px;
+            min-height: calc(100vh - 40px);
+            padding: 10px 15px;
             border: none;
-
+            background-color: transparent;
+            resize: none;
+            overflow: hidden;
             display: block;
-            font-family: monospace;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #3d3d3d;
             white-space: pre-wrap;
             outline: none;
+        }
+        #text::placeholder {
+            color: #b5a99a;
         }
         #input-box {
             display: none;
@@ -102,23 +175,36 @@
         #input-box.show {
             display: block;
         }
-        button:hover {
+        #saver {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            background-color: #8b7355;
             color: white;
-            caret-color: white;
-            background-color: #1867c0;
-            border-color: #1867c0;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.12);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        button {
-            float: right;
-            height: 35px;
-            min-width: 78px;
-            padding: 0 20px;
-            color: lightgray;
-            background-color: white;
-            border-color: white;
-            border-radius: 4px;
-            font-size: 0.875rem;
-            _box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
+        #saver:hover {
+            background-color: #6d5a45;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(0, 0, 0, 0.15);
+            transform: scale(1.05);
+        }
+        #saver:active {
+            transform: scale(0.95);
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
         }
     </style>
   </body>
