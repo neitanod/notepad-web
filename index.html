@@ -49,6 +49,13 @@
     }
 
     function save() {
+        const btn = $('#saver');
+        const icon = btn.querySelector('i');
+
+        // Deshabilitar y grisar
+        btn.disabled = true;
+        btn.classList.add('saving');
+
         const secretKey = getSecretKey();
         const noteName = getCurrentNoteName();
 
@@ -74,6 +81,25 @@
                 window.location.hash = '@' + namespace + '/' + name;
             }
             document.title = getFirstLine($('#text').value);
+
+            // Mostrar tilde de éxito
+            btn.classList.remove('saving');
+            btn.classList.add('success');
+            icon.className = 'fas fa-check';
+
+            // Volver al estado normal después de 1.5s
+            setTimeout(function() {
+                btn.classList.remove('success');
+                btn.disabled = false;
+                icon.className = 'fas fa-save';
+            }, 1500);
+        })
+        .catch(function(err) {
+            // En caso de error, restaurar botón
+            btn.classList.remove('saving');
+            btn.disabled = false;
+            icon.className = 'fas fa-save';
+            console.log('Error saving:', err);
         })
     }
 
@@ -200,6 +226,20 @@
         }
         #saver:active {
             transform: scale(0.95);
+        }
+        #saver.saving {
+            background-color: #b5a99a;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        #saver.success {
+            background-color: #5a8f5a;
+            animation: pulse 0.3s ease;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
         }
         @media print {
             .no-print {
