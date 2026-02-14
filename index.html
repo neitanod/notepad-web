@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <link rel="stylesheet" href="lib/fontawesome/css/all.min.css">
   </head>
-  <body onclick="focusText()">
+  <body>
     <script src="lib/axios.min.js"></script>
+    <script src="lib/publish.js"></script>
     <div id="screen">
         <textarea spellcheck="false" id="text" placeholder="Escribe algo..."></textarea>
         <button onclick="save();" id="saver" title="Guardar" class="no-print">
@@ -19,130 +20,11 @@
     <script>
     function $(selector) { return document.querySelector(selector); }
 
-    function $$(selector) { return document.querySelectorAll(selector); }
-
-    // Generar o recuperar key secreta del usuario
-    function getSecretKey() {
-        let key = localStorage.getItem('notepad-secret-key');
-        if (!key) {
-            // Generar key aleatoria de 32 caracteres hex
-            const arr = new Uint8Array(16);
-            crypto.getRandomValues(arr);
-            key = Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
-            localStorage.setItem('notepad-secret-key', key);
-        }
-        return key;
-    }
-
-    // Obtener nombre de archivo actual o generar uno nuevo
-    function getCurrentNoteName() {
-        const hash = window.location.hash.substr(1);
-        // Si es un namespace propio: @namespace/nombre
-        if (hash.startsWith('@')) {
-            const parts = hash.split('/');
-            if (parts.length >= 2) {
-                return parts.slice(1).join('/'); // retorna el nombre
-            }
-        }
-        // Generar nombre nuevo basado en timestamp
-        return 'nota-' + Date.now() + '.txt';
-    }
-
-    function save() {
-        const btn = $('#saver');
-        const icon = btn.querySelector('i');
-
-        // Deshabilitar y grisar
-        btn.disabled = true;
-        btn.classList.add('saving');
-
-        const secretKey = getSecretKey();
-        const noteName = getCurrentNoteName();
-
-        axios({
-            url: "https://publish.ip1.cc",
-            method: "POST",
-            headers: {
-                'X-Publish-Key': secretKey
-            },
-            data: {
-                data: $('#text').value,
-                name: noteName
-            }
-        })
-        .then(function(r) {
-            // r.data es la URL completa: https://publish.ip1.cc/p/namespace/nombre
-            const url = r.data.trim();
-            // Extraer namespace y nombre del path /p/namespace/nombre
-            const match = url.match(/\/p\/([^\/]+)\/(.+)$/);
-            if (match) {
-                const namespace = match[1];
-                const name = match[2];
-                window.location.hash = '@' + namespace + '/' + name;
-            }
-            document.title = getFirstLine($('#text').value);
-
-            // Mostrar tilde de éxito
-            btn.classList.remove('saving');
-            btn.classList.add('success');
-            icon.className = 'fas fa-check';
-
-            // Volver al estado normal después de 1.5s
-            setTimeout(function() {
-                btn.classList.remove('success');
-                btn.disabled = false;
-                icon.className = 'fas fa-save';
-            }, 1500);
-        })
-        .catch(function(err) {
-            // En caso de error, restaurar botón
-            btn.classList.remove('saving');
-            btn.disabled = false;
-            icon.className = 'fas fa-save';
-            console.log('Error saving:', err);
-        })
-    }
-
-    function loadById() {
-        const hash = window.location.hash.substr(1);
-
-        if (!hash) return;
-
-        // Demo mode
-        if (hash === "demo") {
-            let demos = ['13abb7e36025a5cfe7157a03fb29959c',   // Traductor al jeringozo
-                '6044d722ebbf3ecdf228393a33d4ed19'];  // Adivina el número secreto
-            window.location.hash = "#" + demos[Math.floor(Math.random() * demos.length)];
-            return loadById(); // reload con el nuevo hash
-        }
-
-        let url;
-        if (hash.startsWith('@')) {
-            // Namespace URL: @namespace/nombre -> /p/namespace/nombre
-            const path = hash.substr(1); // quitar @
-            url = "https://publish.ip1.cc/p/" + path;
-        } else {
-            // Legacy public URL: hash -> /public/hash.txt
-            url = "https://publish.ip1.cc/public/" + hash + ".txt";
-        }
-
-        axios({ url: url })
-            .then(function(r) {
-                console.log(r);
-                $('#text').value = r.data;
-                document.title = getFirstLine($('#text').value);
-                autoResize();
-            })
-            .catch(function(err) {
-                console.log('Error loading:', err);
-            })
-    }
-
     function getFirstLine(text) {
-        text = text.trim();
+        text = (text || '').trim();
         var index = text.indexOf("\n");
         if (index === -1) index = undefined;
-        return text.substring(0, index);
+        return text.substring(0, index) || 'Notepad';
     }
 
     function autoResize() {
@@ -151,12 +33,65 @@
         el.style.height = Math.max(el.scrollHeight, window.innerHeight - 40) + 'px';
     }
 
+    function showSaveSuccess() {
+        const btn = $('#saver');
+        const icon = btn.querySelector('i');
+        btn.classList.remove('saving');
+        btn.classList.add('success');
+        icon.className = 'fas fa-check';
+        setTimeout(function() {
+            btn.classList.remove('success');
+            btn.disabled = false;
+            icon.className = 'fas fa-save';
+        }, 1500);
+    }
+
+    function showSaveError() {
+        const btn = $('#saver');
+        const icon = btn.querySelector('i');
+        btn.classList.remove('saving');
+        btn.disabled = false;
+        icon.className = 'fas fa-save';
+    }
+
+    let binding;
+
     document.addEventListener("DOMContentLoaded", function() {
-        getSecretKey(); // Inicializar key si no existe
-        loadById();
+        const pub = new Publish({
+            storageKey: 'notepad-secret-key',
+            defaultName: () => 'nota-' + Date.now() + '.txt'
+        });
+
+        binding = pub.bind({
+            get: () => $('#text').value,
+            set: (data) => {
+                $('#text').value = data;
+                document.title = getFirstLine(data);
+                autoResize();
+            },
+            onSaveStart: () => {
+                const btn = $('#saver');
+                btn.disabled = true;
+                btn.classList.add('saving');
+            },
+            onSaveEnd: (success) => {
+                if (success) {
+                    document.title = getFirstLine($('#text').value);
+                    showSaveSuccess();
+                } else {
+                    showSaveError();
+                }
+            },
+            onError: (err) => console.log('Error:', err)
+        });
+
         $('#text').addEventListener('input', autoResize);
         setTimeout(autoResize, 100);
     });
+
+    function save() {
+        binding.save();
+    }
 
     </script>
     <style>
